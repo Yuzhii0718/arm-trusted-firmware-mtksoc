@@ -39,6 +39,10 @@ include ${MAKE_HELPERS_DIRECTORY}defaults.mk
 include lib/cpus/cpu-ops.mk
 
 PLAT				:= ${DEFAULT_PLAT}
+
+# Include Kconfig script
+include makeconfig_pre.mk
+
 include ${MAKE_HELPERS_DIRECTORY}plat_helpers.mk
 
 # To be able to set platform specific defaults
@@ -138,14 +142,14 @@ DOCS_PATH		?=	docs
 ifneq (${DEBUG}, 0)
 	BUILD_TYPE	:=	debug
 	# Use LOG_LEVEL_INFO by default for debug builds
-	LOG_LEVEL	:=	40
+	LOG_LEVEL	?=	40
 else
 	BUILD_TYPE	:=	release
 	TF_CFLAGS	+=	-g -gdwarf-4
 	ASFLAGS		+=	-g -Wa,-gdwarf-4
 
 	# Use LOG_LEVEL_NOTICE by default for release builds
-	LOG_LEVEL	:=	20
+	LOG_LEVEL	?=	20
         # Enable link-time optimization (AKA "inter-procedural optimization")
         ifeq (${ARCH},aarch64)
                 ifeq ($($(ARCH)-ld-id),$($(ARCH)-cc-id))
@@ -1368,6 +1372,9 @@ help:
 	$(s)echo ""
 	$(s)echo "example: build all targets for the FVP platform:"
 	$(s)echo "  CROSS_COMPILE=aarch64-none-elf- make PLAT=fvp all"
+
+# Include Kconfig script
+include makeconfig_post.mk
 
 .PHONY: FORCE
 FORCE:;
