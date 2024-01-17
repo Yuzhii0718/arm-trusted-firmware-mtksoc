@@ -60,3 +60,7 @@ venv/
 # Nix flake output
 /result
 /result-*
+
+# MediaTek related
+.vscode/
+Kconfiglib/__pycache__/
