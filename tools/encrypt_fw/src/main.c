@@ -20,6 +20,7 @@
 #include "aes_gcm.h"
 #include "cmd_opt.h"
 #include "debug.h"
+#include "derive.h"
 #include "encrypt.h"
 #include "firmware_encrypted.h"
 
@@ -148,7 +149,10 @@ static const cmd_opt_t common_cmd_opt[] = {
 	{
 		{ "out", required_argument, NULL, 'o' },
 		"Encrypted output filename."
-	},
+	}, {
+		{ "derive", no_argument, NULL, 'd' },
+		"Derive encryption key first instead of using it directly"
+	}
 };
 
 int main(int argc, char *argv[])
@@ -160,7 +164,9 @@ int main(int argc, char *argv[])
 	char *nonce = NULL;
 	char *in_fn = NULL;
 	char *out_fn = NULL;
+	char derive_key[DERIVE_KEY_SIZE * 2 + 1] = { 0 };
 	unsigned short fw_enc_status = 0;
+	bool derive = 0;
 
 	NOTICE("Firmware Encryption Tool: %s\n", build_msg);
 
@@ -177,7 +183,7 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		/* getopt_long stores the option index here. */
-		c = getopt_long(argc, argv, "a:f:hi:k:n:o:", cmd_opt, &opt_idx);
+		c = getopt_long(argc, argv, "a:df:hi:k:n:o:", cmd_opt, &opt_idx);
 
 		/* Detect the end of the options. */
 		if (c == -1) {
@@ -191,6 +197,9 @@ int main(int argc, char *argv[])
 				ERROR("Invalid key algorithm '%s'\n", optarg);
 				exit(1);
 			}
+			break;
+		case 'd':
+			derive = 1;
 			break;
 		case 'f':
 			parse_fw_enc_status_flag(optarg, &fw_enc_status);
@@ -235,6 +244,16 @@ int main(int argc, char *argv[])
 	if (!out_fn) {
 		ERROR("Output filename must not be NULL\n");
 		exit(1);
+	}
+
+	if (derive) {
+		ret = derive_enc_key(key, strlen(key),
+				     derive_key, sizeof(derive_key));
+		if (ret)
+			return ret;
+
+		/* use derive key to encrypt */
+		key = derive_key;
 	}
 
 	ret = encrypt_file(fw_enc_status, key_alg, key, nonce, in_fn, out_fn);

@@ -26,6 +26,7 @@ int gcm_encrypt(unsigned short fw_enc_status, const char *key_string,
 	unsigned char data[BUFFER_SIZE], enc_data[BUFFER_SIZE];
 	unsigned char key[KEY_SIZE], iv[IV_SIZE], tag[TAG_SIZE];
 	int bytes, enc_len = 0, i, j, ret = 0;
+	unsigned int image_len = 0;
 	struct fw_enc_hdr header;
 
 	memset(&header, 0, sizeof(struct fw_enc_hdr));
@@ -102,6 +103,7 @@ int gcm_encrypt(unsigned short fw_enc_status, const char *key_string,
 		}
 
 		fwrite(enc_data, 1, enc_len, op_file);
+		image_len += bytes;
 	}
 
 	ret = EVP_EncryptFinal_ex(ctx, enc_data, &enc_len);
@@ -123,6 +125,7 @@ int gcm_encrypt(unsigned short fw_enc_status, const char *key_string,
 	header.dec_algo = KEY_ALG_GCM;
 	header.iv_len = IV_SIZE;
 	header.tag_len = TAG_SIZE;
+	header.image_len = image_len;
 	memcpy(header.iv, iv, IV_SIZE);
 	memcpy(header.tag, tag, TAG_SIZE);
 
