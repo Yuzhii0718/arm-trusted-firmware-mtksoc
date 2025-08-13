@@ -21,6 +21,7 @@
 #define SPI_NAND_MAX_ID_LEN		4U
 #define DELAY_US_400MS			400000U
 #define ETRON_ID			0xD5U
+#define FUDAN_ID			0xA1U
 #define GIGADEVICE_ID			0xC8U
 #define MACRONIX_ID			0xC2U
 #define MICRON_ID			0x2CU
@@ -146,7 +147,8 @@ static int spi_nand_quad_enable(uint8_t manufacturer_id)
 	if (manufacturer_id != MACRONIX_ID &&
 	    manufacturer_id != GIGADEVICE_ID &&
 	    manufacturer_id != ETRON_ID &&
-	    manufacturer_id != FORESEE_ID) {
+	    manufacturer_id != FORESEE_ID &&
+	    manufacturer_id != FUDAN_ID) {
 		return 0;
 	}
 
@@ -542,6 +544,10 @@ static int spi_nand_check_pp(struct parameter_page *pp, uint8_t *sel)
 				    SPINAND_PARAMETER_CRC_OFS);
 		INFO("PP COPY %d CRC read: 0x%x, compute: 0x%x\n",
 		     i, crc, crc_compute);
+
+		// FUDAN integrity CRC (bytes 254-255) is reversed
+		if (crc != crc_compute)
+			crc = htobe16(pp->integrity_crc);
 
 		if (crc != crc_compute) {
 			ret = -EBADMSG;
