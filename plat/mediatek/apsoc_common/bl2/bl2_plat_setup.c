@@ -440,6 +440,17 @@ void bl2_el3_early_platform_setup(u_register_t arg0, u_register_t arg1,
 			        true, &console);
 }
 
+void bl2_early_platform_setup2(u_register_t arg0, u_register_t arg1,
+			       u_register_t arg2, u_register_t arg3)
+{
+	bl2_el3_early_platform_setup(arg0, arg1, arg2, arg3);
+}
+
+void bl2_plat_arch_setup(void)
+{
+	bl2_el3_plat_arch_setup();
+}
+
 static void bl2_run_initcalls(void)
 {
 	const struct initcall *ic = bl2_initcalls;
