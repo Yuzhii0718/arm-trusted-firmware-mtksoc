@@ -91,11 +91,7 @@ endif # END OF BOOT_DEVICE = ram
 ifeq ($(BOOT_DEVICE),nor)
 $(eval $(call BL2_BOOT_NOR))
 BL2_SOURCES		+=	$(MTK_PLAT_SOC)/bl2/bl2_dev_spi_nor.c
-ifeq ($(SPIM_NAND_PREFER_SPI2),1)
 DTS_NAME		:=	mt7987-spi2
-else
-DTS_NAME		:=	mt7987-spi0
-endif
 endif # END OF BOOTDEVICE = nor
 
 ifeq ($(BOOT_DEVICE),emmc)
@@ -122,11 +118,7 @@ ifeq ($(SPIM_NAND_NO_RETRY),1)
 BL2_CPPFLAGS		+=	-DSPIM_NAND_NO_RETRY
 endif # END OF SPIM_NAND_NO_RETRY
 NAND_TYPE		?=	spim:2k+64
-ifeq ($(SPIM_NAND_PREFER_SPI2),1)
-DTS_NAME		:=	mt7987-spi2
-else
 DTS_NAME		:=	mt7987-spi0
-endif
 $(eval $(call BL2_BOOT_NAND_TYPE_CHECK,$(NAND_TYPE),spim:2k+64 spim:2k+128 spim:4k+256))
 endif # END OF BOOTDEVICE = spim-nand
 
