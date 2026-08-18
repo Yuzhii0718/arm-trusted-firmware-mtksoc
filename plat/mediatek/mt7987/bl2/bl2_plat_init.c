@@ -172,6 +172,8 @@ static void mtk_pcie_init(void)
 	mmio_clrbits_32(0x11f10004, BIT(5));
 	mmio_clrbits_32(0x11f10018, BIT(5));
 
+#if I2P5G_PHY_MODE == 0
+	INFO("I2P5G PHY: 1 port 2 lane mode\n");
 	/* Set PHY lane mode and default use 1 port 2 lane mode
 	 * 0x10021110 bit[5] = 0: 1 port 2 lane
 	 * 0x10021110 bit[5] = 1: 2 port 1 lane
@@ -184,6 +186,15 @@ static void mtk_pcie_init(void)
 	 */
 	mmio_setbits_32(0x11e4a088, BIT(2));
 	mmio_setbits_32(0x11e4a188, BIT(2));
+#else
+	INFO("I2P5G PHY: 2 port 1 lane mode\n");
+	/* Set PHY lane mode to 2 port 1 lane */
+	mmio_setbits_32(0x10021110, BIT(5));
+
+	/* Set PHY clock sync to 2 port 1 lane */
+	mmio_clrbits_32(0x11e4a088, BIT(2));
+	mmio_clrbits_32(0x11e4a188, BIT(2));
+#endif
 }
 
 void bl2_el3_plat_arch_setup(void)
