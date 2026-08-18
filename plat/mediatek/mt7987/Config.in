@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Copyright (c) 2026 Yuzhii0718 <admin@yuzhii0718.eu.org>
+#
+# MT7987 platform-specific configurations
+#
+
+if _PLAT_MT7987
+
+config _ENABLE_I2P5G_PHY
+	bool "Enable internal 2.5G PHY support"
+	default y
+	select _SUPPORTS_I2P5G_PHY
+
+endif # _PLAT_MT7987
