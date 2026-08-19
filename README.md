@@ -1,5 +1,7 @@
 # ATF-MTKSOC
 
+This repository IS NOT MTK OFFICIAL repository.
+
 ## Quick Start
 
 - Prepare:
