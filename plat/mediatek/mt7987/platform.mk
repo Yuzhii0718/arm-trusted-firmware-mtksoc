@@ -56,10 +56,16 @@ include $(APSOC_COMMON)/bl2/tbbr_post.mk
 include $(APSOC_COMMON)/bl2/ar_post.mk
 include $(APSOC_COMMON)/bl2/bl2_image_post.mk
 
+# MT7987 ARMPLL target frequency (MHz): 2000 (default), 1600~2500.
+MT7987_ARMPLL_FREQ_MHZ ?= 2000
+ifneq ($(MT7987_ARMPLL_FREQ_MHZ),2000)
+$(eval $(call add_define_val,MT7987_ARMPLL_FREQ_MHZ,$(MT7987_ARMPLL_FREQ_MHZ)))
+endif
+
 # Make sure make command parameter reflects on .o files immediately
 include make_helpers/dep.mk
 
-$(call GEN_DEP_RULES,bl2,emicfg dram_log bl2_boot_ram bl2_boot_nand_nmbm bl2_dev_spi_nand bl2_dev_mmc bl2_plat_init bl2_plat_setup mt7987_gpio dtb)
+$(call GEN_DEP_RULES,bl2,emicfg dram_log bl2_boot_ram bl2_boot_nand_nmbm bl2_dev_spi_nand bl2_dev_mmc bl2_plat_init bl2_plat_setup mt7987_gpio dtb pll)
 $(call MAKE_DEP,bl2,emicfg,DDR4_4BG_MODE DDR3_FREQ_2133 DDR3_FREQ_1866 DDR4_FREQ_3200 DDR4_FREQ_2666)
 $(call MAKE_DEP,bl2,dram_log,DRAM_DEBUG_LOG)
 $(call MAKE_DEP,bl2,bl2_plat_init,BL2_COMPRESS)
@@ -70,6 +76,7 @@ $(call MAKE_DEP,bl2,bl2_boot_ram,RAM_BOOT_DEBUGGER_HOOK RAM_BOOT_UART_DL)
 $(call MAKE_DEP,bl2,bl2_boot_nand_nmbm,NMBM_MAX_RATIO NMBM_MAX_RESERVED_BLOCKS NMBM_DEFAULT_LOG_LEVEL)
 $(call MAKE_DEP,bl2,mt7987_gpio,ENABLE_JTAG)
 $(call MAKE_DEP,bl2,dtb,BOOT_DEVICE)
+$(call MAKE_DEP,bl2,pll,MT7987_ARMPLL_FREQ_MHZ)
 
 $(call GEN_DEP_RULES,bl31,bl31_plat_setup plat_sip_calls)
 $(call MAKE_DEP,bl31,bl31_plat_setup,TRUSTED_BOARD_BOOT)

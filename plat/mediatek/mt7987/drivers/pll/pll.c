@@ -17,6 +17,26 @@
 #define ACLKEN_DIV	0x10400640
 #define BUS_PLL_DIVIDER 0x104007C0
 
+#ifndef MT7987_ARMPLL_FREQ_MHZ
+#define MT7987_ARMPLL_FREQ_MHZ		2000U
+#endif
+
+#define ARMPLL_FREQ_STEP_MHZ		20U
+#define ARMPLL_LL_CON1_FROM_MHZ(_mhz)	(((uint32_t)(_mhz) / ARMPLL_FREQ_STEP_MHZ) << 24)
+
+#if (MT7987_ARMPLL_FREQ_MHZ != 2000U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 1600U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 1700U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 1800U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 1900U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 2100U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 2200U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 2300U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 2400U) && \
+	(MT7987_ARMPLL_FREQ_MHZ != 2500U)
+#error "MT7987_ARMPLL_FREQ_MHZ must be one of: 1600, 1700, 1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500"
+#endif
+
 static unsigned int _mtk_get_cpu_freq(uint32_t target_value)
 {
 	unsigned int temp, clk26cali0, clkdbg_cfg, clk_misc_cfg0;
@@ -73,6 +93,7 @@ unsigned int mtk_get_cpu_freq(void)
 
 void mtk_pll_init(int skip_dcm_setting)
 {
+	uint32_t armpll_con1;
 
 	/* set msdcpll to 384M*/
 	INFO("first set msdcpll 384M MSDCPLL_CON1 = 0x%x\n", 0x4CCCCCCC);
@@ -100,24 +121,29 @@ void mtk_pll_init(int skip_dcm_setting)
 	mmio_clrbits_32(NET1PLL_CON3, CON0_ISO_EN);
 	mmio_clrbits_32(APLL2_CON3, CON0_ISO_EN);
 
-	/* Set PLL frequency */
+	NOTICE("MT7987 build cfg: MT7987_ARMPLL_FREQ_MHZ=%u\n",
+		MT7987_ARMPLL_FREQ_MHZ);
 
-	/* 1.023v: 2.0G */
+	/* Set PLL frequency */
+	armpll_con1 = ARMPLL_LL_CON1_FROM_MHZ(MT7987_ARMPLL_FREQ_MHZ);
+
 	if (mmio_read_32(ARMPLL_LL_CON0) & 0x1) {
 		INFO("Change cpu clock source to xtal\n");
 		mmio_clrbits_32(BUS_PLL_DIVIDER, 0x3000800);
 		mmio_clrbits_32(BUS_PLL_DIVIDER, (0x1 << 9));
 		/* Disable ARMPLL_LL */
 		mmio_clrbits_32(ARMPLL_LL_CON0, BIT(0));
-		/* Set ARMPLL_LL frequency */
-		INFO("ARMPLL_LL_CON1 = 0x%x\n", 0x64000000);
-		mmio_write_32(ARMPLL_LL_CON1, 0x64000000); /* pcw = 0x64000000 */
-		mmio_write_32(ARMPLL_LL_CON0, 0x00670100); /* postdiv[6:4] = 000 /1*/
-	} else {
-		INFO("ARMPLL_LL_CON1 = 0x%x\n", 0x64000000);
-		mmio_write_32(ARMPLL_LL_CON1, 0x64000000); /* pcw = 0x64000000 */
-		mmio_write_32(ARMPLL_LL_CON0, 0x00670100); /* postdiv[6:4] = 000 /1*/
 	}
+
+	/*
+	 * MT7987 ARMPLL mapping used here:
+	 *   Fcpu(MHz) = PCW[31:24] * 20
+	 *   ARMPLL_LL_CON1 = PCW << 24
+	 */
+	mmio_write_32(ARMPLL_LL_CON1, armpll_con1);
+	mmio_write_32(ARMPLL_LL_CON0, 0x00670100); /* postdiv[6:4] = 000 /1 */
+	NOTICE("MT7987 ARMPLL_LL_CON1=0x%x (%u MHz)\n",
+		mmio_read_32(ARMPLL_LL_CON1), MT7987_ARMPLL_FREQ_MHZ);
 
 	/* 0.85v: 1.6G(default) */
 	//INFO("default ARMPLL_LL_CON1 = 0x%x\n", mmio_read_32(ARMPLL_LL_CON1)); /* default pwc=0xA000000 postdiv[6:4] = 001 /2*/
