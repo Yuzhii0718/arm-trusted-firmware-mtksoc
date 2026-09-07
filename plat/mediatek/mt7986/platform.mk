@@ -59,6 +59,12 @@ endif
 endif
 DEFINES += -DOPTEE_TZRAM_SIZE=$(OPTEE_TZRAM_SIZE)
 
+# MT7986 ARMPLL target frequency (MHz): 2000 (default), 1600~2500.
+MT7986_ARMPLL_FREQ_MHZ ?= 2000
+ifneq ($(MT7986_ARMPLL_FREQ_MHZ),2000)
+$(eval $(call add_define_val,MT7986_ARMPLL_FREQ_MHZ,$(MT7986_ARMPLL_FREQ_MHZ)))
+endif
+
 # Make sure make command parameter reflects on .o files immediately
 include make_helpers/dep.mk
 
