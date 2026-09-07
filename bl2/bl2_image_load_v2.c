@@ -18,9 +18,14 @@
 
 #include <platform_def.h>
 
-#ifdef DUAL_FIP
+#if defined(DUAL_FIP) || defined(MTK_XMODEM_RECOVERY)
 void bl2_plat_handle_post_image_load_err(unsigned int image_id);
+#endif
+#ifdef DUAL_FIP
 int mtk_fip_image_setup_next_slot(void);
+#endif
+#ifdef MTK_XMODEM_RECOVERY
+int mtk_xmodem_recovery(void);
 #endif
 
 /*******************************************************************************
@@ -38,7 +43,12 @@ struct entry_point_info *bl2_load_images(void)
 #ifdef DUAL_FIP
 	bool dual_fip_retry = true;
 	int ret;
+#endif
+#ifdef MTK_XMODEM_RECOVERY
+	bool xmodem_retry = true;
+#endif
 
+#if defined(DUAL_FIP) || defined(MTK_XMODEM_RECOVERY)
 retry:
 	plat_setup_done = 0;
 #endif
@@ -93,6 +103,18 @@ retry:
 					ret = mtk_fip_image_setup_next_slot();
 					if (!ret) {
 						dual_fip_retry = false;
+						goto retry;
+					}
+				}
+#endif
+#ifdef MTK_XMODEM_RECOVERY
+				if (xmodem_retry) {
+					/* Ask the user to upload a FIP */
+					if (!mtk_xmodem_recovery()) {
+						/* Restore image info */
+						bl2_plat_handle_post_image_load_err(bl2_node_info->image_id);
+
+						xmodem_retry = false;
 						goto retry;
 					}
 				}

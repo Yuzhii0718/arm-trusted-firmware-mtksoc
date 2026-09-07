@@ -47,11 +47,26 @@ extern const struct initcall bl2_initcalls[];
 #define DUAL_FIP_BUF_OFFSET		0x43400000
 #define DUAL_FIP_BUF_SIZE		0x1000000
 
+/*
+ * XMODEM recovery download buffer.
+ *
+ * The scratch buffer is only used while the boot device is being set up, so it
+ * can be safely recycled once that is done (which is exactly when the recovery
+ * mode can be entered).
+ */
+#define XMODEM_BUF_OFFSET		SCRATCH_BUF_OFFSET
+#define XMODEM_BUF_SIZE			SCRATCH_BUF_SIZE
+
 int mtk_mmc_gpt_image_setup(uintptr_t *dev_handle, uintptr_t *image_spec,
 			    uintptr_t *bkup_image_spec);
 int mtk_fip_image_setup(uintptr_t *dev_handle, uintptr_t *image_spec);
 void mtk_fip_location(size_t *fip_off, size_t *fip_size);
 void mtk_bl2_set_dram_size(size_t size);
+
+#ifdef MTK_XMODEM_RECOVERY
+int mtk_xmodem_recovery(void);
+int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec);
+#endif
 
 /* Provided by each SoC */
 void bl2_el3_plat_arch_setup(void);

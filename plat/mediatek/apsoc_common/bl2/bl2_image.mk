@@ -6,6 +6,17 @@
 
 PLAT_INCLUDES		+=	-I$(APSOC_COMMON)/bl2/include
 
+#
+# XMODEM recovery: download a FIP over the serial console when the boot
+# device does not provide a usable one.
+#
+ifeq ($(MTK_XMODEM_RECOVERY),1)
+BL2_SOURCES		+=	drivers/io/io_memmap.c				\
+				$(APSOC_COMMON)/bl2/xmodem.c			\
+				$(APSOC_COMMON)/bl2/bl2_xmodem_recovery.c
+BL2_CPPFLAGS		+=	-DMTK_XMODEM_RECOVERY
+endif
+
 define BL2_FIP_OVERRIDE_COMMON
 ifneq ($(OVERRIDE_FIP_BASE),)
 BL2_CPPFLAGS		+=	-DOVERRIDE_FIP_BASE=$(OVERRIDE_FIP_BASE)

@@ -4,6 +4,7 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <tf_unxz.h>
 #include <arch_helpers.h>
 #include <common/debug.h>
@@ -167,6 +168,26 @@ static int check_fip(const uintptr_t spec)
 
 	return ret;
 }
+
+#ifdef MTK_XMODEM_RECOVERY
+/*
+ * Check whether a valid FIP is reachable on the current boot device.
+ *
+ * check_fip() leaves the FIP device open on success, and the FIP driver can
+ * only keep MAX_FIP_DEVICES (1 by default) devices open at a time. Release it
+ * right away: the loader reopens it through plat_get_image_source() and closes
+ * it again after every image.
+ */
+static int bl2_fip_probe(void)
+{
+	int ret = check_fip((uintptr_t)NULL);
+
+	if (!ret)
+		io_dev_close(fip_dev_handle);
+
+	return ret;
+}
+#endif /* MTK_XMODEM_RECOVERY */
 
 static const io_uuid_spec_t bl31_uuid_spec = {
 	.uuid = UUID_EL3_RUNTIME_FIRMWARE_BL31,
@@ -344,6 +365,30 @@ int plat_get_image_source(unsigned int image_id, uintptr_t *dev_handle,
 	return 0;
 }
 
+#ifdef MTK_XMODEM_RECOVERY
+static uintptr_t xmodem_dev_handle;
+
+static int check_xmodem_dev(const uintptr_t spec)
+{
+	return io_dev_init(xmodem_dev_handle, (uintptr_t)NULL);
+}
+
+/*
+ * Redirect the FIP image source to a buffer filled by the XMODEM recovery
+ * mode. Returns 0 only if the buffer really contains a valid FIP.
+ */
+int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec)
+{
+	xmodem_dev_handle = dev_handle;
+	policies[FIP_IMAGE_ID].dev_handle = &xmodem_dev_handle;
+	policies[FIP_IMAGE_ID].image_spec = image_spec;
+	policies[FIP_IMAGE_ID].check = check_xmodem_dev;
+
+	/* Make sure the downloaded image really is a FIP */
+	return bl2_fip_probe();
+}
+#endif /* MTK_XMODEM_RECOVERY */
+
 static struct image_info *get_image_info(unsigned int image_id)
 {
 	struct bl_mem_params_node *desc;
@@ -469,6 +514,12 @@ static int bl2_fip_boot_setup(void)
 {
 	int ret;
 
+	ret = register_io_dev_fip(&fip_dev_con);
+	if (ret) {
+		ERROR("register_io_dev_fip failed, ret: %d\n", ret);
+		return ret;
+	}
+
 #ifdef MTK_MMC_BOOT
 	ret = mtk_mmc_gpt_image_setup(&gpt_dev_handle,
 				      &policies[GPT_IMAGE_ID].image_spec,
@@ -481,12 +532,6 @@ static int bl2_fip_boot_setup(void)
 				  &policies[FIP_IMAGE_ID].image_spec);
 	if (ret)
 		return ret;
-
-	ret = register_io_dev_fip(&fip_dev_con);
-	if (ret) {
-		ERROR("register_io_dev_fip failed, ret: %d\n", ret);
-		return ret;
-	}
 
 #if MTK_FIP_ENC && !defined(DECRYPTION_SUPPORT_none)
 	ret = register_io_dev_enc(&enc_dev_con);
@@ -543,9 +588,24 @@ void bl2_plat_preload_setup(void)
 	bl2_run_initcalls();
 
 	ret = bl2_fip_boot_setup();
-	if (ret) {
+	if (ret)
 		ERROR("FIP boot source initialization failed with %d\n", ret);
-		panic();
+
+#ifdef MTK_XMODEM_RECOVERY
+	/* Make sure a usable FIP is really there before going on */
+	if (!ret && bl2_fip_probe()) {
+		ERROR("No valid FIP found on the boot device\n");
+		ret = -ENOENT;
+	}
+#endif
+
+	if (ret) {
+#ifdef MTK_XMODEM_RECOVERY
+		NOTICE("Entering XMODEM recovery mode ...\n");
+		ret = mtk_xmodem_recovery();
+#endif
+		if (ret)
+			panic();
 	}
 
 	image_decompress_init(FIP_DECOMP_BUF_OFFSET, FIP_DECOMP_BUF_SIZE, unxz);

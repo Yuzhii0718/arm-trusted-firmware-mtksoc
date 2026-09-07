@@ -32,7 +32,7 @@ endif
 include make_helpers/dep.mk
 
 $(call GEN_DEP_RULES,bl2,bl2_image_load_v2 bsp_conf dual_fip bl2_boot_nand_ubi bl2_boot_mmc)
-$(call MAKE_DEP,bl2,bl2_image_load_v2,DUAL_FIP)
+$(call MAKE_DEP,bl2,bl2_image_load_v2,DUAL_FIP MTK_XMODEM_RECOVERY)
 $(call MAKE_DEP,bl2,bsp_conf,LOG_LEVEL)
 $(call MAKE_DEP,bl2,dual_fip,LOG_LEVEL NEED_BL32 TRUSTED_BOARD_BOOT)
 $(call MAKE_DEP,bl2,bl2_boot_nand_ubi,DUAL_FIP)

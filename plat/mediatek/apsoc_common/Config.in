@@ -496,6 +496,8 @@ config _RAM_BOOT_DEBUGGER_HOOK
 
 osource "plat/mediatek/apsoc_common/bl2/Config-uart_dl.in"
 
+osource "plat/mediatek/apsoc_common/bl2/Config-xmodem.in"
+
 config _DEFAULT_NAND_NMBM
 	bool
 

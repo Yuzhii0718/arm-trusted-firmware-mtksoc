@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Copyright (c) 2026, Yuzhii0718 <admin@yuzhii0718.eu.org>.
+#
+# XMODEM recovery internal configurations
+#
+
+config _XMODEM_RECOVERY
+	bool "Enter XMODEM recovery when BL31/U-Boot is not available"
+	depends on !_BOOT_DEVICE_RAM
+	default y
+	help
+	  When no valid FIP (BL31 + U-Boot) can be fetched from the configured
+	  boot device, BL2 prints a prompt and waits for a FIP to be uploaded
+	  over the serial console using the XMODEM protocol. The uploaded image
+	  is placed in DRAM and booted from there, which allows rescuing a
+	  device with a corrupted or erased firmware.
+
+	  Note that the uploaded image is only kept in DRAM, it is not written
+	  back to the boot device.
+
+# Makefile options
+config MTK_XMODEM_RECOVERY
+	int
+	default 1
+	depends on _XMODEM_RECOVERY

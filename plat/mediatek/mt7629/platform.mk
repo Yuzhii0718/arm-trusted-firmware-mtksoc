@@ -57,7 +57,8 @@ include $(APSOC_COMMON)/bl2/bl2_image_post.mk
 # Make sure make command parameter takes effect on .o files immediately
 include make_helpers/dep.mk
 
-$(call GEN_DEP_RULES,bl2,dram_log bl2_boot_ram bl2_boot_nand_nmbm bl2_plat_init)
+$(call GEN_DEP_RULES,bl2,dram_log bl2_boot_ram bl2_boot_nand_nmbm bl2_plat_init bl2_plat_setup)
+$(call MAKE_DEP,bl2,bl2_plat_setup,BOOT_DEVICE TRUSTED_BOARD_BOOT MTK_XMODEM_RECOVERY)
 $(call MAKE_DEP,bl2,dram_log,DRAM_DEBUG_LOG)
 $(call MAKE_DEP,bl2,bl2_plat_init,BL2_COMPRESS)
 $(call MAKE_DEP,bl2,bl2_boot_ram,RAM_BOOT_DEBUGGER_HOOK RAM_BOOT_UART_DL)
