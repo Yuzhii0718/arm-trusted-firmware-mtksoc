@@ -4,10 +4,11 @@
  *
  * XMODEM recovery mode.
  *
- * When no valid FIP (BL31 + U-Boot) can be fetched from the configured boot
- * device, BL2 asks the user to upload one over the serial port using the
- * XMODEM protocol and keeps booting from the image just downloaded. This
- * allows rescuing a device whose firmware was erased or corrupted.
+ * Whatever prevents BL2 from booting the stored BL31 + U-Boot FIP -- a boot
+ * device that cannot be initialized, an erased or corrupted FIP, an image that
+ * fails authentication or decompression -- is routed here instead of being
+ * turned into a dead device. The user uploads a FIP over the serial port using
+ * the XMODEM protocol and BL2 keeps booting from it.
  */
 
 #include <errno.h>
@@ -57,30 +58,48 @@ static io_block_spec_t xmodem_fip_spec = {
 	.length = XMODEM_BUF_SIZE,
 };
 
+static uintptr_t xmodem_memmap_handle;
+
+/*
+ * Open the memmap device exposing the downloaded FIP.
+ *
+ * It is registered at most once: recovery can be entered several times in a
+ * row and io_register_device() consumes a slot of the fixed I/O device pool.
+ */
 static int xmodem_fip_source_setup(uintptr_t *dev_handle, uintptr_t *image_spec,
 				   size_t size)
 {
-	const io_dev_connector_t *dev_con;
 	int ret;
 
-	ret = register_io_dev_memmap(&dev_con);
-	if (ret) {
-		ERROR("XMODEM: register_io_dev_memmap failed: %d\n", ret);
-		return ret;
-	}
+	if (!xmodem_memmap_handle) {
+		const io_dev_connector_t *dev_con;
 
-	ret = io_dev_open(dev_con, (uintptr_t)NULL, dev_handle);
-	if (ret) {
-		ERROR("XMODEM: io_dev_open failed: %d\n", ret);
-		return ret;
+		ret = register_io_dev_memmap(&dev_con);
+		if (ret) {
+			ERROR("XMODEM: register_io_dev_memmap failed: %d\n", ret);
+			return ret;
+		}
+
+		ret = io_dev_open(dev_con, (uintptr_t)NULL,
+				  &xmodem_memmap_handle);
+		if (ret) {
+			ERROR("XMODEM: io_dev_open failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	xmodem_fip_spec.length = size;
+	*dev_handle = xmodem_memmap_handle;
 	*image_spec = (uintptr_t)&xmodem_fip_spec;
 
 	return 0;
 }
 
+/*
+ * Receive one FIP and install it as the FIP image source.
+ *
+ * Returns 0 only once a FIP with a valid ToC has been received.
+ */
 static int xmodem_load_fip(void)
 {
 	uintptr_t dev_handle, image_spec;
@@ -94,8 +113,10 @@ static int xmodem_load_fip(void)
 		return ret;
 	}
 
-	if (!size)
+	if (!size) {
+		ERROR("XMODEM: no data received\n");
 		return -EIO;
+	}
 
 	NOTICE("XMODEM: received 0x%zx bytes @ 0x%08x\n", size,
 	       XMODEM_BUF_OFFSET);
@@ -112,17 +133,30 @@ static int xmodem_load_fip(void)
 	return ret;
 }
 
-int mtk_xmodem_recovery(void)
+void mtk_xmodem_recovery(const char *reason)
 {
-	/* The transfer may take minutes, do not let the watchdog bite */
+	unsigned int attempt = 0;
+
+	/*
+	 * The transfer may take minutes, do not let the watchdog bite. It stays
+	 * disabled for the remainder of BL2; the next boot stage is responsible
+	 * for taking it over again.
+	 */
 	mtk_wdt_control(false);
 
 	console_flush();
 
-	NOTICE("\nNo valid BL31 + U-Boot FIP available.\n");
+	ERROR("BL2: %s; entering XMODEM recovery\n", reason);
 
+	/*
+	 * Never give up. A rejected image only means the user has to send it
+	 * again, it must not leave the device unusable.
+	 */
 	for (;;) {
 		int ch;
+
+		if (attempt++)
+			ERROR("XMODEM: the image just sent was rejected\n");
 
 		NOTICE("Press 'x' to load BL31 + U-Boot FIP via XMODEM\n");
 
@@ -131,8 +165,6 @@ int mtk_xmodem_recovery(void)
 		} while (ch != 'x');
 
 		if (!xmodem_load_fip())
-			return 0;
-
-		ERROR("XMODEM: please try again\n");
+			return;
 	}
 }

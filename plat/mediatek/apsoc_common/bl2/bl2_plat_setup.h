@@ -64,7 +64,12 @@ void mtk_fip_location(size_t *fip_off, size_t *fip_size);
 void mtk_bl2_set_dram_size(size_t size);
 
 #ifdef MTK_XMODEM_RECOVERY
-int mtk_xmodem_recovery(void);
+/*
+ * Enter XMODEM recovery mode. Returns only after a FIP with a valid ToC has
+ * been received and installed as the FIP image source; anything else is
+ * rejected and the user is asked to send the image again.
+ */
+void mtk_xmodem_recovery(const char *reason);
 int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec);
 #endif
 

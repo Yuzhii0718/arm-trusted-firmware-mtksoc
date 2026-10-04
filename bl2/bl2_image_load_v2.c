@@ -25,7 +25,7 @@ void bl2_plat_handle_post_image_load_err(unsigned int image_id);
 int mtk_fip_image_setup_next_slot(void);
 #endif
 #ifdef MTK_XMODEM_RECOVERY
-int mtk_xmodem_recovery(void);
+void mtk_xmodem_recovery(const char *reason);
 #endif
 
 /*******************************************************************************
@@ -43,9 +43,6 @@ struct entry_point_info *bl2_load_images(void)
 #ifdef DUAL_FIP
 	bool dual_fip_retry = true;
 	int ret;
-#endif
-#ifdef MTK_XMODEM_RECOVERY
-	bool xmodem_retry = true;
 #endif
 
 #if defined(DUAL_FIP) || defined(MTK_XMODEM_RECOVERY)
@@ -83,7 +80,7 @@ retry:
 		err = bl2_plat_handle_pre_image_load(bl2_node_info->image_id);
 		if (err != 0) {
 			ERROR("BL2: Failure in pre image load handling (%i)\n", err);
-			plat_error_handler(err);
+			goto image_error;
 		}
 
 		if ((bl2_node_info->image_info->h.attr &
@@ -94,32 +91,7 @@ retry:
 			if (err != 0) {
 				ERROR("BL2: Failed to load image id %u (%i)\n",
 				      bl2_node_info->image_id, err);
-#ifdef DUAL_FIP
-				if (dual_fip_retry) {
-					/* Restore image info */
-					bl2_plat_handle_post_image_load_err(bl2_node_info->image_id);
-
-					/* Try next FIP slot */
-					ret = mtk_fip_image_setup_next_slot();
-					if (!ret) {
-						dual_fip_retry = false;
-						goto retry;
-					}
-				}
-#endif
-#ifdef MTK_XMODEM_RECOVERY
-				if (xmodem_retry) {
-					/* Ask the user to upload a FIP */
-					if (!mtk_xmodem_recovery()) {
-						/* Restore image info */
-						bl2_plat_handle_post_image_load_err(bl2_node_info->image_id);
-
-						xmodem_retry = false;
-						goto retry;
-					}
-				}
-#endif
-				plat_error_handler(err);
+				goto image_error;
 			}
 		} else {
 			INFO("BL2: Skip loading image id %u\n", bl2_node_info->image_id);
@@ -129,11 +101,45 @@ retry:
 		err = bl2_plat_handle_post_image_load(bl2_node_info->image_id);
 		if (err != 0) {
 			ERROR("BL2: Failure in post image load handling (%i)\n", err);
-			plat_error_handler(err);
+			goto image_error;
 		}
 
 		/* Go to next image */
 		bl2_node_info = bl2_node_info->next_load_info;
+		continue;
+
+image_error:
+#if defined(DUAL_FIP) || defined(MTK_XMODEM_RECOVERY)
+		/* Unwind whatever the failed attempt changed in image_info */
+		bl2_plat_handle_post_image_load_err(bl2_node_info->image_id);
+#endif
+
+#ifdef DUAL_FIP
+		if (dual_fip_retry) {
+			/* Try next FIP slot */
+			ret = mtk_fip_image_setup_next_slot();
+			if (!ret) {
+				dual_fip_retry = false;
+				goto retry;
+			}
+		}
+#endif
+
+#ifdef MTK_XMODEM_RECOVERY
+		/*
+		 * Nothing below this point is allowed to brick the device: no
+		 * matter what made the image unusable (damaged or missing FIP,
+		 * corrupted BL3x, failed decompression or authentication), fall
+		 * back to XMODEM. mtk_xmodem_recovery() returns only once a FIP
+		 * with a valid ToC has been downloaded, and the whole loading
+		 * sequence is then retried from the beginning -- for as long as
+		 * it takes.
+		 */
+		mtk_xmodem_recovery("stored BL31 + U-Boot FIP is unusable");
+		goto retry;
+#endif
+
+		plat_error_handler(err);
 	}
 
 	/*

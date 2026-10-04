@@ -6,15 +6,19 @@
 #
 
 config _XMODEM_RECOVERY
-	bool "Enter XMODEM recovery when BL31/U-Boot is not available"
+	bool "Enter XMODEM recovery when BL31/U-Boot cannot be booted"
 	depends on !_BOOT_DEVICE_RAM
 	default y
 	help
-	  When no valid FIP (BL31 + U-Boot) can be fetched from the configured
-	  boot device, BL2 prints a prompt and waits for a FIP to be uploaded
-	  over the serial console using the XMODEM protocol. The uploaded image
-	  is placed in DRAM and booted from there, which allows rescuing a
-	  device with a corrupted or erased firmware.
+	  Make BL2 recoverable instead of brickable: any error preventing it
+	  from booting the stored BL31 + U-Boot FIP (boot device initialization
+	  failure, missing or damaged FIP, image authentication or
+	  decompression failure) makes BL2 print a prompt and wait for a FIP to
+	  be uploaded over the serial console using the XMODEM protocol.
+
+	  The uploaded image is placed in DRAM and booted from there. If it is
+	  rejected, BL2 asks for it again; the recovery loop never gives up, so
+	  the device can always be rescued over the serial port.
 
 	  Note that the uploaded image is only kept in DRAM, it is not written
 	  back to the boot device.

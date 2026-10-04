@@ -379,6 +379,17 @@ static int check_xmodem_dev(const uintptr_t spec)
  */
 int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec)
 {
+	/*
+	 * Both validating and loading a FIP go through the FIP I/O driver.
+	 * Report the missing driver instead of pretending the download is good:
+	 * the loader would dereference a NULL connector and crash rather than
+	 * come back here.
+	 */
+	if (!fip_dev_con) {
+		ERROR("FIP I/O device is not registered\n");
+		return -ENODEV;
+	}
+
 	xmodem_dev_handle = dev_handle;
 	policies[FIP_IMAGE_ID].dev_handle = &xmodem_dev_handle;
 	policies[FIP_IMAGE_ID].image_spec = image_spec;
@@ -592,21 +603,32 @@ void bl2_plat_preload_setup(void)
 		ERROR("FIP boot source initialization failed with %d\n", ret);
 
 #ifdef MTK_XMODEM_RECOVERY
-	/* Make sure a usable FIP is really there before going on */
-	if (!ret && bl2_fip_probe()) {
-		ERROR("No valid FIP found on the boot device\n");
-		ret = -ENOENT;
+	/*
+	 * Recovery relies on the FIP I/O driver to parse the downloaded image
+	 * and to load BL31/BL33 from it. If it was never registered there is
+	 * nothing XMODEM could do; say so instead of entering a recovery loop
+	 * that can never succeed.
+	 */
+	if (!fip_dev_con) {
+		ERROR("FIP I/O device unavailable, recovery is not possible\n");
+		panic();
 	}
-#endif
 
-	if (ret) {
-#ifdef MTK_XMODEM_RECOVERY
-		NOTICE("Entering XMODEM recovery mode ...\n");
-		ret = mtk_xmodem_recovery();
+	/*
+	 * Anything standing between BL2 and the stored BL31 + U-Boot FIP (a
+	 * boot device that failed to initialize, missing or damaged images)
+	 * must lead to the XMODEM recovery loop rather than to a dead device.
+	 * The whole storage setup is intentionally tolerant: the failure
+	 * resurfaces here instead of panicking on the spot.
+	 */
+	if (ret || bl2_fip_probe())
+		mtk_xmodem_recovery(ret ?
+			"FIP boot source initialization failed" :
+			"no valid FIP found on the boot device");
+#else
+	if (ret)
+		panic();
 #endif
-		if (ret)
-			panic();
-	}
 
 	image_decompress_init(FIP_DECOMP_BUF_OFFSET, FIP_DECOMP_BUF_SIZE, unxz);
 
