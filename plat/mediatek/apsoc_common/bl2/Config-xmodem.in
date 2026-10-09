@@ -20,11 +20,50 @@ config _XMODEM_RECOVERY
 	  rejected, BL2 asks for it again; the recovery loop never gives up, so
 	  the device can always be rescued over the serial port.
 
+	  A FIP that loads and verifies cleanly is not necessarily one that
+	  boots (a U-Boot that never opens its console, for instance), which no
+	  check can detect. BL2 therefore also prints a countdown before reading
+	  anything from the boot device: pressing 'x' during that window diverts
+	  the boot into the same recovery path, letting the operator break out
+	  of a false brick. See XMODEM_PROMPT_TIMEOUT_MS to size or disable that
+	  window.
+
 	  Note that the uploaded image is only kept in DRAM, it is not written
 	  back to the boot device.
+
+config XMODEM_PROMPT_TIMEOUT_MS
+	int "Manual recovery prompt timeout (ms)"
+	depends on _XMODEM_RECOVERY
+	default 1000
+	range 0 60000
+	help
+	  How long BL2 waits for the operator to press 'x' before booting the
+	  stored image, in milliseconds.
+
+	  Be aware that this countdown runs on every single successful boot, so
+	  it is a direct boot-time cost. Set it to 0 to skip the prompt
+	  altogether, keeping only the automatic recovery path: the extra
+	  escape hatch for a well-formed but unbootable FIP is then given up.
+
+config _XMODEM_DEBUG
+	bool "Verbose XMODEM recovery tracing"
+	depends on _XMODEM_RECOVERY
+	default n
+	help
+	  Print the FIP ToC of every uploaded image and trace the steps of the
+	  hand-over to the loader (installing, validating, accepted).
+
+	  Meant for bring-up on a new board and for working out why an upload
+	  was rejected. The recovery path itself only runs when the device is
+	  otherwise unbootable, so this costs nothing on a healthy boot.
 
 # Makefile options
 config MTK_XMODEM_RECOVERY
 	int
 	default 1
 	depends on _XMODEM_RECOVERY
+
+config MTK_XMODEM_DEBUG
+	int
+	default 1
+	depends on _XMODEM_DEBUG

@@ -25,6 +25,14 @@ void bl2_plat_handle_post_image_load_err(unsigned int image_id);
 int mtk_fip_image_setup_next_slot(void);
 #endif
 #ifdef MTK_XMODEM_RECOVERY
+/*
+ * MediaTek XMODEM recovery hook, used by the last-resort path below. This file
+ * is shared with every other platform and cannot include the platform's
+ * bl2_plat_setup.h, where the very same prototype lives: keep both in sync.
+ *
+ * The manual diversion is offered by the platform before anything is read from
+ * the boot device (bl2_plat_preload_setup()), not from here.
+ */
 void mtk_xmodem_recovery(const char *reason);
 #endif
 
@@ -136,6 +144,7 @@ image_error:
 		 * it takes.
 		 */
 		mtk_xmodem_recovery("stored BL31 + U-Boot FIP is unusable");
+		NOTICE("BL2: restarting the boot sequence from the downloaded FIP\n");
 		goto retry;
 #endif
 

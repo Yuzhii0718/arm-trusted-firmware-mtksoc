@@ -370,6 +370,16 @@ static uintptr_t xmodem_dev_handle;
 
 static int check_xmodem_dev(const uintptr_t spec)
 {
+	/*
+	 * Never hand a NULL device to io_dev_init(): it dereferences the
+	 * handle, and a fault at EL3 without crash reporting parks the CPU
+	 * silently instead of reporting anything.
+	 */
+	if (!xmodem_dev_handle) {
+		ERROR("XMODEM: no memmap device for the downloaded FIP\n");
+		return -ENODEV;
+	}
+
 	return io_dev_init(xmodem_dev_handle, (uintptr_t)NULL);
 }
 
@@ -387,6 +397,11 @@ int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec)
 	 */
 	if (!fip_dev_con) {
 		ERROR("FIP I/O device is not registered\n");
+		return -ENODEV;
+	}
+
+	if (!dev_handle) {
+		ERROR("XMODEM: no device for the downloaded FIP\n");
 		return -ENODEV;
 	}
 
@@ -615,16 +630,38 @@ void bl2_plat_preload_setup(void)
 	}
 
 	/*
-	 * Anything standing between BL2 and the stored BL31 + U-Boot FIP (a
-	 * boot device that failed to initialize, missing or damaged images)
-	 * must lead to the XMODEM recovery loop rather than to a dead device.
-	 * The whole storage setup is intentionally tolerant: the failure
-	 * resurfaces here instead of panicking on the spot.
+	 * Offer the manual diversion first, before a single byte is read from
+	 * the boot device.
+	 *
+	 * A FIP that loads, authenticates and decompresses cleanly is not
+	 * necessarily one that boots (a U-Boot that never opens its console,
+	 * for instance). No check can detect that, so the decision is left to
+	 * the operator.
+	 *
+	 * Doing it here rather than after the images have been loaded keeps
+	 * the manual path shaped exactly like the automatic one below: the
+	 * recovery happens before the loading sequence starts, so there is no
+	 * completed sequence to unwind and the images are loaded exactly once.
+	 * It also spares the operator from loading a FIP that is about to be
+	 * replaced.
+	 *
+	 * Letting the window expire falls through to the usual boot.
 	 */
-	if (ret || bl2_fip_probe())
-		mtk_xmodem_recovery(ret ?
-			"FIP boot source initialization failed" :
-			"no valid FIP found on the boot device");
+	if (mtk_xmodem_recovery_prompt()) {
+		mtk_xmodem_recovery("XMODEM recovery requested by the operator");
+	} else if (ret) {
+		/*
+		 * Anything standing between BL2 and the stored BL31 + U-Boot FIP
+		 * (a boot device that failed to initialize, missing or damaged
+		 * images) must lead to the XMODEM recovery loop rather than to a
+		 * dead device. The whole storage setup is intentionally tolerant:
+		 * the failure resurfaces here instead of panicking on the spot.
+		 */
+		mtk_xmodem_recovery("FIP boot source initialization failed");
+	} else if (bl2_fip_probe()) {
+		ERROR("No valid FIP found on the boot device\n");
+		mtk_xmodem_recovery("no valid FIP found on the boot device");
+	}
 #else
 	if (ret)
 		panic();

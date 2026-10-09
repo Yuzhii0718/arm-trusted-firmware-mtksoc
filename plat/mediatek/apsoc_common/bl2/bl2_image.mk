@@ -15,6 +15,16 @@ BL2_SOURCES		+=	drivers/io/io_memmap.c				\
 				$(APSOC_COMMON)/bl2/xmodem.c			\
 				$(APSOC_COMMON)/bl2/bl2_xmodem_recovery.c
 BL2_CPPFLAGS		+=	-DMTK_XMODEM_RECOVERY
+ifeq ($(MTK_XMODEM_DEBUG),1)
+BL2_CPPFLAGS		+=	-DMTK_XMODEM_DEBUG
+endif
+ifneq ($(XMODEM_PROMPT_TIMEOUT_MS),)
+BL2_CPPFLAGS		+=	-DXMODEM_PROMPT_TIMEOUT_MS=$(XMODEM_PROMPT_TIMEOUT_MS)
+endif
+
+include make_helpers/dep.mk
+$(call GEN_DEP_RULES,bl2,bl2_xmodem_recovery)
+$(call MAKE_DEP,bl2,bl2_xmodem_recovery,XMODEM_PROMPT_TIMEOUT_MS MTK_XMODEM_DEBUG)
 endif
 
 define BL2_FIP_OVERRIDE_COMMON
