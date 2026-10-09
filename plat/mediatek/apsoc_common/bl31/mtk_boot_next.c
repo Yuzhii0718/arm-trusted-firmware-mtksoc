@@ -8,8 +8,10 @@
 #include <arch_helpers.h>
 #include <common/debug.h>
 #include <common/bl_common.h>
+#include <common/tbbr/tbbr_img_def.h>
 #include <lib/el3_runtime/context_mgmt.h>
 #include <drivers/console.h>
+#include <mtk_boot_source.h>
 #include <platform_def.h>
 #include "mtk_boot_next.h"
 
@@ -17,6 +19,38 @@ static entry_point_info_t bl32_ep_info;
 static entry_point_info_t bl33_ep_info;
 static entry_point_info_t bl33k_ep_info;
 static bool kernel_boot_once_flag;
+
+/*
+ * The boot source BL2 published for BL33, read out of its image parameters
+ * while they were still readable - see mtk_bl31_capture_boot_source().
+ *
+ * Only the value is kept, never a pointer to BL2's memory: BL2 runs from the
+ * shared L2 SRAM, which this platform gives back to the L2 cache in
+ * bl31_plat_arch_setup() (platform_setup_sram() of the SoC), so nothing of
+ * BL2's description survives to the point where BL33 is entered.
+ */
+static uint64_t bl33_boot_source;
+
+void mtk_bl31_capture_boot_source(void *params)
+{
+	bl_params_t *bl2_params = (bl_params_t *)params;
+	bl_params_node_t *node;
+
+	if (bl2_params == NULL)
+		return;
+
+	for (node = bl2_params->head; node != NULL;
+	     node = node->next_params_info) {
+		if (node->image_id != BL33_IMAGE_ID)
+			continue;
+
+		if ((node->ep_info != NULL) &&
+		    ((node->ep_info->args.arg2 >> 16) == MTK_BOOTSRC_MAGIC))
+			bl33_boot_source = node->ep_info->args.arg2;
+
+		break;
+	}
+}
 
 static uint32_t mtk_default_spsr_for_bl32_entry(void)
 {
@@ -92,6 +126,14 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 		bl33_ep_info.pc = BL33_BASE;
 		bl33_ep_info.spsr = mtk_default_spsr_for_bl33_entry(false, true);
 	}
+
+	/*
+	 * Carry the boot source BL2 published in an argument of the
+	 * description above (see mtk_boot_source.h). Zero - an older BL2, or
+	 * a platform that publishes nothing - reaches BL33 as it always did
+	 * and reads as "unknown" there.
+	 */
+	bl33_ep_info.args.arg2 = bl33_boot_source;
 
 	if (!bl32_ep_info.h.version) {
 		SET_PARAM_HEAD(&bl32_ep_info, PARAM_EP, VERSION_1, 0);

@@ -15,6 +15,7 @@
 #include <mtk_wdt.h>
 #include <uart_dl.h>
 #include <hsuart.h>
+#include <mtk_boot_source.h>
 #include "bl2_plat_setup.h"
 
 #define DEBUGGER_HOOK_ADDR		0x100200
@@ -51,6 +52,14 @@ int mtk_fip_image_setup(uintptr_t *dev_handle, uintptr_t *image_spec)
 {
 	const io_dev_connector_t *dev_con;
 	int ret;
+
+	/*
+	 * This is the RAM boot FIP source: the FIP never comes from a boot
+	 * device, it is pushed into DRAM (over UART, or by a debugger) and
+	 * read back through the memmap I/O driver. Tell BL33 about it, see
+	 * mtk_fip_source_set_ram().
+	 */
+	mtk_fip_source_set_ram();
 
 #ifndef FPGA_EMU_WDT_TEST
 	/* Disable Watchdog */

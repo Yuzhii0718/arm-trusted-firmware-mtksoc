@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <platform_def.h>
 #include <hsuart.h>
+#include <mtk_boot_source.h>
 
 #ifdef MTK_IMG_ENC
 #include <img_dec.h>
@@ -32,6 +33,15 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	static console_t console;
 
 	dram_size = arg1;
+
+	/*
+	 * BL2 hands its image parameters over in arg0, and this is the last
+	 * moment at which they can be read: they live in the shared L2 SRAM,
+	 * which bl31_plat_arch_setup() gives back to the L2 cache, so by the
+	 * time BL33 is entered BL2's memory holds nothing but cache. Read the
+	 * boot source out of them now - see mtk_boot_source.h.
+	 */
+	mtk_bl31_capture_boot_source((void *)arg0);
 
 	console_hsuart_register(UART_BASE, UART_CLOCK, UART_BAUDRATE, true,
 				&console);

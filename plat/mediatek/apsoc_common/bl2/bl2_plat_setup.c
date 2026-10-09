@@ -19,6 +19,7 @@
 #include <platform_def.h>
 #include <plat_private.h>
 #include <drivers/io/io_encrypted.h>
+#include <mtk_boot_source.h>
 #include "bl2_plat_setup.h"
 #ifdef DUAL_FIP
 #include "bsp_conf.h"
@@ -43,6 +44,9 @@ struct plat_io_policy {
 };
 
 static size_t dram_size;
+/* Set once the FIP image source stops being the boot device (see
+ * mtk_fip_source_set_ram()). */
+static bool fip_source_is_ram;
 static const io_dev_connector_t *fip_dev_con;
 static uintptr_t fip_image_id = FIP_IMAGE_ID;
 static uintptr_t fip_dev_handle;
@@ -389,6 +393,8 @@ static int check_xmodem_dev(const uintptr_t spec)
  */
 int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec)
 {
+	int ret;
+
 	/*
 	 * Both validating and loading a FIP go through the FIP I/O driver.
 	 * Report the missing driver instead of pretending the download is good:
@@ -411,7 +417,16 @@ int mtk_fip_set_xmodem_source(uintptr_t dev_handle, uintptr_t image_spec)
 	policies[FIP_IMAGE_ID].check = check_xmodem_dev;
 
 	/* Make sure the downloaded image really is a FIP */
-	return bl2_fip_probe();
+	ret = bl2_fip_probe();
+
+	/*
+	 * A FIP that passed the check is the one that will be booted, and it
+	 * came from the console rather than from the boot device.
+	 */
+	if (!ret)
+		mtk_fip_source_set_ram();
+
+	return ret;
 }
 #endif /* MTK_XMODEM_RECOVERY */
 
@@ -481,9 +496,29 @@ struct bl_load_info *plat_get_bl_image_load_info(void)
 struct bl_params *plat_get_next_bl_params(void)
 {
 	struct bl_params *params = get_next_bl_params_from_mem_params_desc();
+	bl_mem_params_node_t *bl33;
 
 	if (params) {
 		params->head->ep_info->args.arg1 = dram_size;
+
+		/*
+		 * Publish the boot source of the FIP BL2 is finally booting.
+		 * BL31 reads it out of this description in its early platform
+		 * setup and carries it to BL33 in the arguments of the entry
+		 * point it enters it with - see mtk_boot_source.h - where
+		 * U-Boot picks it up in save_boot_params(), so it can tell a
+		 * flash boot from a RAM (console recovery) session.
+		 *
+		 * This runs after the image loading - including a XMODEM
+		 * recovery download that replaced the FIP - so the value
+		 * always describes the images that are finally booted.
+		 */
+		bl33 = get_bl_mem_params_node(BL33_IMAGE_ID);
+		if (bl33)
+			bl33->ep_info.args.arg2 =
+				MTK_BOOTSRC_VALUE(fip_source_is_ram ?
+					MTK_BOOTSRC_RAM :
+					MTK_BOOTSRC_FLASH);
 #ifdef MTK_IMG_ENC
 		img_dec_set_next_bl_params(&params->head->ep_info->args.arg2,
 					   &params->head->ep_info->args.arg3);
@@ -681,6 +716,11 @@ void bl2_platform_setup(void)
 void mtk_bl2_set_dram_size(size_t size)
 {
 	dram_size = size;
+}
+
+void mtk_fip_source_set_ram(void)
+{
+	fip_source_is_ram = true;
 }
 
 void bl2_el3_plat_prepare_exit(void)
