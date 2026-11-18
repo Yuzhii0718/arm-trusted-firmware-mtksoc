@@ -129,9 +129,9 @@ endif
 endif # END OF BOOT_DEVICE
 
 # After the BOOT_DEVICE block, which picks a DTS_NAME of its own
-ifeq ($(SPLASH_GL_BE10000), 1)
+ifeq ($(SPLASH_GL_ST7789P3), 1)
 include $(APSOC_COMMON)/drivers/panel/panel.mk
-BL2_CPPFLAGS		+=	-DSPLASH_GL_BE10000				\
+BL2_CPPFLAGS		+=	-DSPLASH_GL_ST7789P3			\
 				-DPANEL_SPLASH_PATH=\"$(APSOC_COMMON)/drivers/panel/logo/st7789p3_splash.bin\"	\
 				-DMTK_PWM_CHAN_BASE=0x100			\
 				-DMTK_PWM_CHAN_WIDTH=0x100

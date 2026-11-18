@@ -13,8 +13,8 @@ panel_splash:
 	.equ	_panel_splash_size, . - panel_splash
 	.size	panel_splash, _panel_splash_size
 
-	.align	3
 	.section	".rodata.panel_splash_size", "a"
+	.align	3
 	.type	panel_splash_size, %object
 	.global	panel_splash_size
 panel_splash_size:

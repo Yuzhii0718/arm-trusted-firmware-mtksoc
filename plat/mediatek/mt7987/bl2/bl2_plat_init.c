@@ -32,7 +32,7 @@
 #define WDT_REQ_IRQ_EN_KEY	0x44000000
 #define HANG_FREE_PROT_INFRA_AO	0x1000310c
 
-#ifdef SPLASH_GL_BE10000
+#ifdef SPLASH_GL_ST7789P3
 void mt7987_splash_init(void);
 #endif
 
@@ -216,7 +216,7 @@ const struct initcall bl2_initcalls[] = {
 	INITCALL(mt7987_pll_init),
 	INITCALL(mtk_print_cpu),
 	INITCALL(mtk_infra_ao_init),
-#ifdef SPLASH_GL_BE10000
+#ifdef SPLASH_GL_ST7789P3
 	INITCALL(mt7987_splash_init),
 #endif
 	INITCALL(mtk_pcie_init),
