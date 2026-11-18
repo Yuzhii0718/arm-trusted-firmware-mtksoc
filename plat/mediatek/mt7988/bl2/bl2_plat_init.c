@@ -36,6 +36,10 @@
 
 #define HANG_FREE_PROT_INFRA_AO	0x1000310c
 
+#ifdef SPLASH_GL_BE14000
+void mt7988_splash_init(void);
+#endif
+
 static void mtk_wdt_init(void)
 {
 	mtk_wdt_print_status();
@@ -188,6 +192,9 @@ const struct initcall bl2_initcalls[] = {
 	INITCALL(mt7988_pll_init),
 	INITCALL(mtk_print_cpu),
 	INITCALL(mtk_infra_ao_init),
+#ifdef SPLASH_GL_BE14000
+	INITCALL(mt7988_splash_init),
+#endif
 	INITCALL(mtk_pcie_init),
 	INITCALL(mtk_eip197_init),
 	INITCALL(mtk_mem_init),
