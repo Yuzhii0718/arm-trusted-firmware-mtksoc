@@ -147,7 +147,7 @@ endif # END OF BOOT_DEVICE
 ifeq ($(SPLASH_GL_BE14000), 1)
 include $(APSOC_COMMON)/drivers/panel/panel.mk
 BL2_CPPFLAGS		+=	-DSPLASH_GL_BE14000				\
-				-DPANEL_SPLASH_PATH=\"$(APSOC_COMMON)/drivers/panel/st7789p3_splash.bin\"	\
+				-DPANEL_SPLASH_PATH=\"$(APSOC_COMMON)/drivers/panel/logo/st7789p3_splash.bin\"	\
 				-DMTK_PWM_CHAN_BASE=0x80			\
 				-DMTK_PWM_CHAN_WIDTH=0x40
 BL2_SOURCES		+=	$(MTK_PLAT_SOC)/bl2/bl2_splash_gl_be14000.c
