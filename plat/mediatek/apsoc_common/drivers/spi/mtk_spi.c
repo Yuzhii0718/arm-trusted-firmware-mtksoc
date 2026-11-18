@@ -487,6 +487,29 @@ static void mtk_spi_setup_dma_addr(struct mtk_spi *mdata,
 		       mdata->base + SPI_RX_DST_REG);
 }
 
+/*
+ * spi-mem sets CFG3 per operation, and mtk_spi_hw_init() zeroes it for the raw
+ * transfers below, which is full duplex. A one-way transfer then has nothing
+ * draining the other side, and on MT7988 SPI1 it never completes once the
+ * 32 byte FIFO fills. Pick the duplex mode per transfer, as the kernel does.
+ */
+static void mtk_spi_ipm_set_duplex(struct mtk_spi *mdata,
+				   const struct spi_transfer *xfer)
+{
+	uint32_t reg_val = 0;
+
+	if (!mdata->dev_comp->ipm_design)
+		return;
+
+	if (!xfer->tx_buf || !xfer->rx_buf) {
+		reg_val |= SPI_CFG3_IPM_HALF_DUPLEX_EN;
+		if (xfer->rx_buf)
+			reg_val |= SPI_CFG3_IPM_HALF_DUPLEX_DIR;
+	}
+
+	writel(reg_val, mdata->base + SPI_CFG3_IPM_REG);
+}
+
 int mtk_spi_fifo_transfer(struct spi_device *spi,
 				 struct spi_transfer *xfer)
 {
@@ -507,6 +530,7 @@ int mtk_spi_fifo_transfer(struct spi_device *spi,
 
 	mtk_spi_reset(mdata);
 	mtk_spi_hw_init(mdata, spi);
+	mtk_spi_ipm_set_duplex(mdata, xfer);
 	if (xfer->speed_hz > spi->max_speed_hz)
 		xfer->speed_hz = spi->max_speed_hz;
 	if (xfer->speed_hz == 0)
@@ -581,6 +605,7 @@ int mtk_spi_dma_transfer(struct spi_device *spi,
 
 	mtk_spi_reset(mdata);
 	mtk_spi_hw_init(mdata, spi);
+	mtk_spi_ipm_set_duplex(mdata, xfer);
 
 	if (xfer->speed_hz > spi->max_speed_hz)
 		xfer->speed_hz = spi->max_speed_hz;
